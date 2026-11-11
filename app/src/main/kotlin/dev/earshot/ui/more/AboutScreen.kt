@@ -1,0 +1,153 @@
+package dev.earshot.ui.more
+
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import dev.earshot.R
+import dev.earshot.distribution.Distribution
+import dev.earshot.ui.common.EarshotPreview
+import dev.earshot.ui.common.InfoBanner
+import dev.earshot.ui.common.LightDarkPreview
+import dev.earshot.ui.common.SectionCard
+import dev.earshot.ui.common.SubScreenScaffold
+import dev.earshot.ui.theme.JetBrainsMono
+
+@Composable
+fun AboutScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val version = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "?"
+    }
+    AboutContent(version = version, onBack = onBack, onOpenPrivacyPolicy = { openPrivacyPolicy(context) })
+}
+
+/**
+ * The privacy policy Play's User Data policy wants linked inside the app (play-readiness.md C).
+ * A plain ACTION_VIEW hands the address to the phone's browser, so Earshot itself still needs no
+ * INTERNET permission. The address is also shown as text below the link, for phones without a browser.
+ */
+internal const val PRIVACY_POLICY_URL = "https://github.com/HellzYeahh/earshot/blob/main/PRIVACY.md"
+
+private fun openPrivacyPolicy(context: Context) {
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_POLICY_URL)).addCategory(Intent.CATEGORY_BROWSABLE)
+    try {
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Log.i("Earshot/About", "No app opens web links; the policy address stays on screen")
+    }
+}
+
+@Composable
+fun AboutContent(version: String, onBack: () -> Unit, onOpenPrivacyPolicy: () -> Unit = {}) {
+    SubScreenScaffold(title = stringResource(R.string.settings_about), onBack = onBack) { padding ->
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SectionCard {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.about_version, version, Distribution.NAME), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.about_tagline), style = MaterialTheme.typography.bodyLarge)
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.about_not_affiliated), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            InfoBanner(stringResource(R.string.about_control_channel))
+            SectionCard(title = stringResource(R.string.about_credits)) {
+                Text(stringResource(R.string.about_credits_body), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                CreditLine("bosectl", "github.com/aaronsb/bosectl", "MIT")
+                CreditLine("Quiet Rebellion", "github.com/MadEyez/quietrebellion", "MIT")
+                CreditLine("soundcorebridge", "github.com/mervin008/soundcorebridge", "MIT")
+                CreditLine("momentum4-control", "github.com/Ariazonaa/momentum4-control", "MIT")
+                CreditLine("momentumctl", "codeberg.org/galen/momentumctl", "MIT")
+                CreditLine("SonyHeadphonesClient", "github.com/mos9527/SonyHeadphonesClient", "MIT")
+                CreditLine("jbl-control", "github.com/AhmadRun/jbl-control", "MIT")
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.about_autoeq_credit), style = MaterialTheme.typography.bodyMedium)
+                Text("github.com/jaakkopasanen/AutoEq", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.about_fonts_credit), style = MaterialTheme.typography.bodyMedium)
+                CreditLine("Barlow, Barlow Condensed", "github.com/jpt/barlow", "OFL 1.1")
+                CreditLine("JetBrains Mono", "github.com/JetBrains/JetBrainsMono", "OFL 1.1")
+                CreditLine("Sora", "github.com/sora-xor/sora-font", "OFL 1.1")
+                CreditLine("Plus Jakarta Sans", "github.com/tokotype/PlusJakartaSans", "OFL 1.1")
+                Spacer(Modifier.height(8.dp))
+                // tools/sleep-sounds/sources.json is the full list (titles, files, how each loop was cut).
+                Text(stringResource(R.string.about_sleep_sounds_credit), style = MaterialTheme.typography.bodyMedium)
+                CreditLine("Rain: Duane Null", "archive.org/details/aporee_66172_76498", PUBLIC_DOMAIN)
+                CreditLine("Heavy rain: alas23/sala", "archive.org/details/aporee_61123_70270", PUBLIC_DOMAIN)
+                CreditLine("Ocean: melissapons", "archive.org/details/aporee_33898_38993", PUBLIC_DOMAIN)
+                CreditLine("Stream: Piotrek Zyla", "archive.org/details/aporee_55335_63233", PUBLIC_DOMAIN)
+                CreditLine("Wind: john grzinich", "archive.org/details/aporee_37592_43037", PUBLIC_DOMAIN)
+                CreditLine("Fire: Hoerma", "archive.org/details/aporee_51595_58876", PUBLIC_DOMAIN)
+                CreditLine("Birdsong alarm: kaoss012", "archive.org/details/aporee_72287_84415", PUBLIC_DOMAIN)
+            }
+            SectionCard(title = stringResource(R.string.about_licence)) {
+                Text(stringResource(R.string.about_licence_body), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(MIT_TEXT, style = MaterialTheme.typography.bodySmall, fontFamily = JetBrainsMono, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            SectionCard(title = stringResource(R.string.about_privacy)) {
+                Text(stringResource(R.string.about_privacy_body), style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = onOpenPrivacyPolicy, modifier = Modifier.heightIn(min = 48.dp)) {
+                    Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.about_privacy_policy))
+                }
+                Text(PRIVACY_POLICY_URL, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+private const val PUBLIC_DOMAIN = "public domain"
+
+@Composable
+private fun CreditLine(name: String, url: String, licence: String) {
+    Column(Modifier.padding(vertical = 4.dp)) {
+        Text("$name ($licence)", style = MaterialTheme.typography.titleSmall)
+        Text(url, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+private const val MIT_TEXT = """MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE."""
+
+@LightDarkPreview
+@Composable
+private fun AboutPreview() {
+    EarshotPreview { AboutContent("0.1.0", {}) }
+}

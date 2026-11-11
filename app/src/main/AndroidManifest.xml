@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Classic Bluetooth (RFCOMM to the headphones) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- AirPods / Beats battery from their BLE adverts (read-only). Never used to derive location. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+
+    <!-- Foreground service that owns the connection -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- Voice memos from the headset shortcut (shortcut/VoiceMemoService) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Companion Device Manager presence for linked headsets (bt/CompanionPresence): Android binds
+         service.HeadsetPresenceService when one connects, and the service may then start the
+         foreground service from the background. Both are normal permissions. -->
+    <uses-permission android:name="android.permission.REQUEST_OBSERVE_COMPANION_DEVICE_PRESENCE" />
+    <uses-permission android:name="android.permission.REQUEST_COMPANION_START_FOREGROUND_SERVICES_FROM_BACKGROUND" />
+
+    <!-- Sleep tab (sleep/): sounds through the night from a foreground service, exact night steps
+         and wake alarms ("Alarms & reminders", user-granted), the alarm over the lock screen,
+         phone vibration, and the optional Do Not Disturb for the night (user-granted access). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
+    <!-- Sound engine and mic check -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Automations: Wi-Fi network name needs location on current Android -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Automations: foreground-app trigger (special access, user grants in Settings) -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
+    <!-- No QUERY_ALL_PACKAGES on purpose: Google Play allows it only for apps whose core purpose
+         needs every installed app. Each app Earshot looks up is named by the <queries> below. -->
+
+    <!-- The pre-1.0 Earshot (dev.earshot, debug-signed, up to the 0.9.1 bridge): both builds look for
+         it to offer moving the settings over and removing it (distribution/LegacyApp). Each
+         build's manifest adds the other edition's package. -->
+    <queries>
+        <package android:name="dev.earshot" />
+    </queries>
+
+    <!-- Shizuku (its permission, provider and <queries> entry) is in the GitHub build only:
+         app/src/foss/AndroidManifest.xml (B8, docs/research/play-readiness.md). -->
+
+    <!-- No INTERNET permission on purpose: this app never talks to a server. -->
+
+    <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- Universal remote: a Companion Device Manager link per headset (connect, rename, forget). -->
+    <uses-feature android:name="android.software.companion_device_setup" android:required="false" />
+
+    <!-- Package visibility (Android 11+): every other app Earshot resolves or looks up must match an
+         entry here, or Android hides it. Code that starts resolving another app or intent adds its
+         entry (PackageVisibilityManifestTest checks the ones below). -->
+    <queries>
+        <!-- Launchable apps: the per-app sound profile and foreground-app trigger pickers
+             (audio/InstalledApps), the shortcut's "Launch an app" (getLaunchIntentForPackage) and
+             its icon on the Shortcuts remapper. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <!-- Shortcuts remapper: the assistants it can forward to, and the TextToSpeech engine. -->
+        <intent>
+            <action android:name="android.intent.action.VOICE_COMMAND" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VOICE_ASSIST" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <!-- A saved voice memo's notification opens it in an audio player (MediaStore content URI;
+             shortcut/VoiceMemoNotifications checks resolveActivity first). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="content" android:mimeType="audio/*" />
+        </intent>
+        <!-- Codec panel: Developer options, else Settings (codec/CodecRepositoryImpl checks resolveActivity). -->
+        <intent>
+            <action android:name="android.settings.APPLICATION_DEVELOPMENT_SETTINGS" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.SETTINGS" />
+        </intent>
+        <!-- Who started the headset trigger (LaunchOrigin): Android hides the referrer of an app we
+             can't see, and only a press from the Bluetooth stack, the system or Android's app
+             chooser may start a voice memo, so those stay visible on every Android version.
+             Exactly LaunchOrigin.PRESS_SOURCES: change both together. -->
+        <package android:name="android" />
+        <package android:name="com.android.bluetooth" />
+        <package android:name="com.google.android.bluetooth" />
+        <package android:name="com.android.intentresolver" />
+    </queries>
+
+    <application
+        android:name=".EarshotApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Earshot">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Owns the Bluetooth connection and the persistent notification (service/) -->
+        <service
+            android:name=".service.HeadphoneService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!-- Reconnect when the headphones connect to the phone (service/) -->
+        <receiver
+            android:name=".service.BluetoothConnectionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+                <action android:name="android.bluetooth.a2dp.profile.action.CONNECTION_STATE_CHANGED" />
+                <action android:name="android.bluetooth.action.LE_AUDIO_CONNECTION_STATE_CHANGED" />
+                <!-- Ignored in onReceive, but starting the process re-arms schedule alarms. -->
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Linked headsets (universal remote): bound by Android while one is connected (service/) -->
+        <service
+            android:name=".service.HeadsetPresenceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_COMPANION_DEVICE_SERVICE"
+            tools:targetApi="s">
+            <intent-filter>
+                <action android:name="android.companion.CompanionDeviceService" />
+            </intent-filter>
+        </service>
+
+        <!-- Attach the EQ to apps that announce their audio session (audio/) -->
+        <receiver
+            android:name=".audio.AudioSessionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.action.OPEN_AUDIO_EFFECT_CONTROL_SESSION" />
+                <action android:name="android.media.action.CLOSE_AUDIO_EFFECT_CONTROL_SESSION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Settings tile (extras/tile) -->
+        <service
+            android:name=".extras.tile.ModeTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_mode"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data android:name="android.service.quicksettings.ACTIVE_TILE" android:value="true" />
+            <meta-data android:name="android.service.quicksettings.TOGGLEABLE_TILE" android:value="false" />
+        </service>
+
+        <!-- Home-screen widget (extras/widget) -->
+        <receiver
+            android:name=".extras.widget.EarshotWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/earshot_widget_info" />
+        </receiver>
+
+        <!-- Scheduled automations (extras/automation) -->
+        <receiver
+            android:name=".extras.automation.ScheduleReceiver"
+            android:exported="false" />
+
+        <!-- Shortcuts remapper (shortcut/): the headset's press-and-hold (HFP voice recognition)
+             arrives as VOICE_COMMAND once the user picks Earshot in Android's chooser. No UI.
+             Reached only through the aliases below. -->
+        <activity
+            android:name=".shortcut.ShortcutTriggerActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:label="@string/shortcut_trigger_label"
+            android:showWhenLocked="true"
+            android:taskAffinity="dev.earshot.shortcut"
+            android:theme="@style/Theme.Earshot.Trigger" />
+
+        <!-- Bluetooth headsets' press-and-hold. Disabled until a Controls choice or "Detect a
+             button" needs it (shortcut/HeadsetTrigger): a second VOICE_COMMAND handler makes
+             Android show its chooser on every headset's next press. -->
+        <activity-alias
+            android:name=".shortcut.HeadsetTrigger"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/shortcut_trigger_label"
+            android:targetActivity=".shortcut.ShortcutTriggerActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Wired / USB-C headsets' long press (locked or screen off). Disabled until the
+             experimental switch on the Shortcuts remapper screen enables it. -->
+        <activity-alias
+            android:name=".shortcut.WiredHeadsetTrigger"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/shortcut_trigger_label"
+            android:targetActivity=".shortcut.ShortcutTriggerActivity">
+            <intent-filter>
+                <action android:name="android.speech.action.VOICE_SEARCH_HANDS_FREE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Voice memo recording started by the headset shortcut -->
+        <service
+            android:name=".shortcut.VoiceMemoService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+
+        <!-- Sleep tab (sleep/): keeps the night's sounds and the ringing alarm in the foreground.
+             The three Sleep alarm components are direct-boot aware, so an alarm still rings after an
+             overnight restart before the phone is unlocked (sleep/LockedAlarms). -->
+        <service
+            android:name=".sleep.SleepService"
+            android:directBootAware="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Sleep tab: the night's AlarmManager steps and wake alarms; clock changes re-arm them -->
+        <receiver
+            android:name=".sleep.SleepAlarmReceiver"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Sleep tab: the ringing alarm over the lock screen (full-screen notification) -->
+        <activity
+            android:name=".sleep.AlarmActivity"
+            android:directBootAware="true"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity="dev.earshot.alarm"
+            android:theme="@style/Theme.Earshot"
+            android:turnScreenOn="true" />
+    </application>
+</manifest>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Field sand: the window before Compose draws, and the splash. ui/theme/FieldPalette.kt has the rest. -->
+    <color name="window_background">#FFD8DCCD</color>
+</resources>
