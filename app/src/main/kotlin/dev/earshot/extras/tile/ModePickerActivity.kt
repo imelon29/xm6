@@ -138,7 +138,7 @@ class ModePickerActivity : Activity() {
                         headphones.setMode(modeIndex)
                     } catch (_: Exception) {
                         // Revert to the last state reported by the headphones on failure.
-                        updateSelection(headphones.state.value.currentModeIndex)
+                        headphones.state.value.currentModeIndex?.let { updateSelection(it) }
                     }
                 }
             }
@@ -160,7 +160,7 @@ class ModePickerActivity : Activity() {
         // Keep the selected tile synchronized with actual headset state.
         uiScope.launch {
             headphones.state.collect { newState ->
-                updateSelection(newState.currentModeIndex)
+                newState.currentModeIndex?.let { updateSelection(it) }
             }
         }
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
