@@ -1,6 +1,13 @@
 package dev.earshot.extras.tile
 
-import android.app.AlertDialog
+import android.app.Dialog
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.app.PendingIntent
 import android.content.ComponentName
 import android.content.Context
@@ -84,22 +91,112 @@ class ModeTileService : TileService() {
             openApp()
             return
         }
-        val labels = options.map { it.second }.toTypedArray()
         val selected = options.indexOfFirst { it.first == state.currentModeIndex }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Sony WH-1000XM6")
-            .setSingleChoiceItems(labels, selected) { d, which ->
-                val index = options[which].first
-                d.dismiss()
-                CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
-                    runCatching { headphones.setMode(index) }
-                        .onFailure { Log.w(TAG, "Tile setMode($index) failed: ${it.message}") }
-                }
+        val dialog = createModeDialog(options, selected) { index ->
+            CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
+                runCatching { headphones.setMode(index) }
+                    .onFailure { Log.w(TAG, "Tile setMode($index) failed: ${it.message}") }
             }
-            .setNegativeButton("Отмена", null)
-            .create()
+        }
         runCatching { showDialog(dialog) }
             .onFailure { Log.w(TAG, "Cannot show mode picker: ${it.message}"); openApp() }
+    }
+
+    /** Compact dark mode selector; intentionally uses platform views so no Activity is launched. */
+    private fun createModeDialog(
+        options: List<Pair<Int, String>>,
+        selected: Int,
+        onModeSelected: (Int) -> Unit
+    ): Dialog {
+        val dialog = Dialog(this)
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density + 0.5f).toInt()
+        fun rounded(color: Int, radius: Int): GradientDrawable = GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radius).toFloat()
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(20), dp(18), dp(18))
+            background = rounded(Color.rgb(27, 32, 45), 26)
+        }
+        val title = TextView(this).apply {
+            text = "Sony WH-1000XM6"
+            textSize = 19f
+            setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
+        }
+        panel.addView(title)
+        val subtitle = TextView(this).apply {
+            text = "Управление звуком"
+            textSize = 12f
+            setTextColor(Color.rgb(174, 184, 204))
+            setPadding(0, dp(3), 0, dp(18))
+        }
+        panel.addView(subtitle)
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        val icons = mapOf(
+            ModeMeaning.QUIET to "◉",
+            ModeMeaning.AWARE to "◎",
+            ModeMeaning.OFF to "⊘"
+        )
+        options.forEachIndexed { i, (index, label) ->
+            val meaning = when (label) {
+                "Шумоподавление" -> ModeMeaning.QUIET
+                "Прозрачность" -> ModeMeaning.AWARE
+                else -> ModeMeaning.OFF
+            }
+            val active = i == selected
+            val tile = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                minimumHeight = dp(96)
+                setPadding(dp(3), dp(12), dp(3), dp(12))
+                background = rounded(
+                    if (active) Color.rgb(89, 104, 206) else Color.rgb(52, 57, 75), 17
+                )
+                isClickable = true
+                isFocusable = true
+                contentDescription = label
+            }
+            tile.addView(TextView(this).apply {
+                text = icons[meaning] ?: "○"
+                textSize = 29f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+            })
+            tile.addView(TextView(this).apply {
+                text = when (meaning) {
+                    ModeMeaning.QUIET -> "Шумодав"
+                    ModeMeaning.AWARE -> "Прозрачность"
+                    else -> "Выкл."
+                }
+                textSize = 11f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                setPadding(0, dp(8), 0, 0)
+                if (active) setTypeface(null, Typeface.BOLD)
+            })
+            tile.setOnClickListener {
+                dialog.dismiss()
+                onModeSelected(index)
+            }
+            row.addView(tile, LinearLayout.LayoutParams(0, dp(100), 1f).apply {
+                if (i > 0) leftMargin = dp(7)
+            })
+        }
+        panel.addView(row)
+        dialog.setContentView(panel)
+        dialog.window?.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            setDimAmount(0.35f)
+            addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        return dialog
     }
 
     /**
