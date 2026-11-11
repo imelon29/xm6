@@ -7,8 +7,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
-import android.view.Window
-import android.os.Process
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -22,9 +20,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.collect
 
 /** Translucent activity instead of a system AlertDialog; volume overlay doesn't dismiss it. */
 class ModePickerActivity : Activity() {
+    private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
     private fun dp(n: Int) = (n * resources.displayMetrics.density + .5f).toInt()
     private fun rounded(color: Int, radius: Int, stroke: Boolean = false) = GradientDrawable().apply {
         setColor(color)
@@ -84,6 +86,22 @@ class ModePickerActivity : Activity() {
             setPadding(0, 0, 0, dp(15))
         })
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val tiles = mutableMapOf<Int, Pair<LinearLayout, List<TextView>>>()
+        fun updateSelection(selectedIndex: Int) {
+            tiles.forEach { (index, pair) ->
+                val (tileView, labels) = pair
+                val active = index == selectedIndex
+                tileView.background = rounded(
+                    if (active) Color.argb(242, 220, 228, 242)
+                    else Color.argb(165, 113, 126, 151), 22, true
+                )
+                labels.forEach { labelView ->
+                    labelView.setTextColor(if (active) Color.rgb(42, 53, 74) else Color.WHITE)
+                }
+                labels.last().setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
+                tileView.isSelected = active
+            }
+        }
         options.forEachIndexed { i, (modeIndex, label) ->
             val active = modeIndex == state.currentModeIndex
             val tile = LinearLayout(this).apply {
@@ -95,25 +113,34 @@ class ModePickerActivity : Activity() {
                 isFocusable = true
                 contentDescription = label
             }
-            tile.addView(TextView(this).apply {
+            val iconLabel = TextView(this).apply {
                 text = when (label) { "Шумодав" -> "◉"; "Прозрачность" -> "◎"; else -> "⊘" }
                 textSize = 28f
                 gravity = Gravity.CENTER
                 setTextColor(if (active) Color.rgb(42, 53, 74) else Color.WHITE)
-            })
-            tile.addView(TextView(this).apply {
+            }
+            tile.addView(iconLabel)
+            val nameLabel = TextView(this).apply {
                 text = label
                 textSize = 11f
                 gravity = Gravity.CENTER
                 setTextColor(if (active) Color.rgb(42, 53, 74) else Color.WHITE)
                 setPadding(0, dp(7), 0, 0)
                 if (active) setTypeface(null, Typeface.BOLD)
-            })
+            }
+            tile.addView(nameLabel)
+            tiles[modeIndex] = tile to listOf(iconLabel, nameLabel)
             tile.setOnClickListener {
-                CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
-                    runCatching { headphones.setMode(modeIndex) }
+                // Keep the window open and update the visual selection immediately.
+                updateSelection(modeIndex)
+                uiScope.launch {
+                    try {
+                        headphones.setMode(modeIndex)
+                    } catch (_: Exception) {
+                        // Revert to the last state reported by the headphones on failure.
+                        updateSelection(headphones.state.value.currentModeIndex)
+                    }
                 }
-                finish()
             }
             row.addView(tile, LinearLayout.LayoutParams(0, dp(88), 1f).apply {
                 if (i > 0) leftMargin = dp(7)
@@ -130,7 +157,18 @@ class ModePickerActivity : Activity() {
             rightMargin = dp(10)
         })
         setContentView(root)
+        // Keep the selected tile synchronized with actual headset state.
+        uiScope.launch {
+            headphones.state.collect { newState ->
+                updateSelection(newState.currentModeIndex)
+            }
+        }
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         // No onPause/onWindowFocusChanged dismissal: volume slider may take temporary focus.
+    }
+
+    override fun onDestroy() {
+        uiScope.cancel()
+        super.onDestroy()
     }
 }
