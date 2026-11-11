@@ -77,16 +77,11 @@ class ModePickerActivity : Activity() {
             setOnClickListener { /* Keep panel open when tapping between controls. */ }
         }
         panel.addView(TextView(this).apply {
-            text = "Sony WH-1000XM6"
+            text = "Sony XM6"
             textSize = 19f
             setTextColor(Color.WHITE)
             setTypeface(null, Typeface.BOLD)
-        })
-        panel.addView(TextView(this).apply {
-            text = "Управление звуком"
-            textSize = 12f
-            setTextColor(Color.rgb(225, 225, 227))
-            setPadding(0, dp(3), 0, dp(15))
+            setPadding(0, 0, 0, dp(15))
         })
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         options.forEachIndexed { i, (modeIndex, label) ->
