@@ -91,119 +91,17 @@ class ModeTileService : TileService() {
             openApp()
             return
         }
-        val selected = options.indexOfFirst { it.first == state.currentModeIndex }
-        val dialog = createModeDialog(options, selected) { index ->
-            CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
-                runCatching { headphones.setMode(index) }
-                    .onFailure { Log.w(TAG, "Tile setMode($index) failed: ${it.message}") }
+        val intent = Intent(this, ModePickerActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startActivityAndCollapse(PendingIntent.getActivity(this, 72, intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            } else {
+                @Suppress("DEPRECATION", "StartActivityAndCollapseDeprecated")
+                startActivityAndCollapse(intent)
             }
-        }
-        runCatching { showDialog(dialog) }
-            .onFailure { Log.w(TAG, "Cannot show mode picker: ${it.message}"); openApp() }
-    }
-
-    /** OriginOS-inspired floating selector, anchored near the first home-screen icon row. */
-    private fun createModeDialog(
-        options: List<Pair<Int, String>>,
-        selected: Int,
-        onModeSelected: (Int) -> Unit
-    ): Dialog {
-        val dialog = Dialog(this)
-        val density = resources.displayMetrics.density
-        fun dp(value: Int) = (value * density + 0.5f).toInt()
-        fun shape(color: Int, radius: Int, border: Int? = null): GradientDrawable =
-            GradientDrawable().apply {
-                setColor(color)
-                cornerRadius = dp(radius).toFloat()
-                border?.let { setStroke(dp(1), it) }
-            }
-
-        // Muted, translucent glass colors similar to the OriginOS quick-settings tiles.
-        val glass = Color.argb(225, 49, 61, 83)
-        val inactive = Color.argb(185, 102, 113, 139)
-        val active = Color.argb(245, 218, 226, 241)
-        val outline = Color.argb(85, 229, 237, 255)
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(17), dp(16), dp(17))
-            background = shape(glass, 29, outline)
-        }
-        panel.addView(TextView(this).apply {
-            text = "Sony WH-1000XM6"
-            textSize = 19f
-            setTextColor(Color.WHITE)
-            setTypeface(null, Typeface.BOLD)
-        })
-        panel.addView(TextView(this).apply {
-            text = "Управление звуком"
-            textSize = 12f
-            setTextColor(Color.rgb(206, 215, 230))
-            setPadding(0, dp(3), 0, dp(15))
-        })
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        options.forEachIndexed { i, (index, label) ->
-            val isActive = i == selected
-            val tile = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                setPadding(dp(2), dp(10), dp(2), dp(10))
-                background = shape(if (isActive) active else inactive, 22, outline)
-                isClickable = true
-                isFocusable = true
-                contentDescription = label
-            }
-            tile.addView(TextView(this).apply {
-                text = when (label) {
-                    "Шумоподавление" -> "◉"
-                    "Прозрачность" -> "◎"
-                    else -> "⊘"
-                }
-                textSize = 29f
-                gravity = Gravity.CENTER
-                setTextColor(if (isActive) Color.rgb(45, 57, 79) else Color.WHITE)
-            })
-            tile.addView(TextView(this).apply {
-                text = when (label) {
-                    "Шумоподавление" -> "Шумодав"
-                    "Прозрачность" -> "Прозрачность"
-                    else -> "Выкл."
-                }
-                textSize = 11f
-                gravity = Gravity.CENTER
-                setTextColor(if (isActive) Color.rgb(45, 57, 79) else Color.WHITE)
-                setPadding(0, dp(7), 0, 0)
-                if (isActive) setTypeface(null, Typeface.BOLD)
-            })
-            tile.setOnClickListener {
-                dialog.dismiss()
-                onModeSelected(index)
-            }
-            row.addView(tile, LinearLayout.LayoutParams(0, dp(88), 1f).apply {
-                if (i > 0) leftMargin = dp(7)
-            })
-        }
-        panel.addView(row)
-        dialog.setContentView(panel)
-        // Do not close merely because a volume overlay appears or the user touches outside.
-        // Back still closes the picker; choosing a mode closes it intentionally.
-        dialog.setCanceledOnTouchOutside(false)
-        dialog.window?.apply {
-            setBackgroundDrawableResource(android.R.color.transparent)
-            setDimAmount(0.12f)
-            addFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            setGravity(Gravity.TOP or Gravity.CENTER_HORIZONTAL)
-            // Window y is measured below the status bar. Approximately aligns with
-            // the top of the first row of home-screen folders on vivo X300.
-            attributes = attributes.apply { y = dp(58) }
-            setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                runCatching { setBackgroundBlurRadius(dp(24)) }
-            }
-        }
-        return dialog
+        }.onFailure { Log.w(TAG, "Cannot open mode picker: ${it.message}"); openApp() }
     }
 
     /**

@@ -129,6 +129,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".extras.tile.ModePickerActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Earshot.ModePicker" />
+
         <!-- Owns the Bluetooth connection and the persistent notification (service/) -->
         <service
             android:name=".service.HeadphoneService"
