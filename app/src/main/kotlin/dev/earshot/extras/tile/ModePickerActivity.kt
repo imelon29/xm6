@@ -29,7 +29,7 @@ class ModePickerActivity : Activity() {
     private fun rounded(color: Int, radius: Int, stroke: Boolean = false) = GradientDrawable().apply {
         setColor(color)
         cornerRadius = dp(radius).toFloat()
-        if (stroke) setStroke(dp(1), Color.argb(95, 224, 224, 224))
+        if (stroke) setStroke(dp(1), Color.argb(90, 235, 241, 255))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,7 +72,7 @@ class ModePickerActivity : Activity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(17), dp(16), dp(18))
-            background = rounded(Color.argb(184, 75, 75, 79), 29, true)
+            background = rounded(Color.argb(218, 49, 61, 83), 29, true)
             elevation = dp(10).toFloat()
             setOnClickListener { /* Keep panel open when tapping between controls. */ }
         }
@@ -89,8 +89,8 @@ class ModePickerActivity : Activity() {
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                background = rounded(if (active) Color.argb(235, 229, 229, 231)
-                                     else Color.argb(148, 139, 139, 143), 22, true)
+                background = rounded(if (active) Color.argb(242, 220, 228, 242)
+                                     else Color.argb(165, 113, 126, 151), 22, true)
                 isClickable = true
                 isFocusable = true
                 contentDescription = label
@@ -99,13 +99,13 @@ class ModePickerActivity : Activity() {
                 text = when (label) { "Шумодав" -> "◉"; "Прозрачность" -> "◎"; else -> "⊘" }
                 textSize = 28f
                 gravity = Gravity.CENTER
-                setTextColor(if (active) Color.rgb(44, 44, 48) else Color.WHITE)
+                setTextColor(if (active) Color.rgb(42, 53, 74) else Color.WHITE)
             })
             tile.addView(TextView(this).apply {
                 text = label
                 textSize = 11f
                 gravity = Gravity.CENTER
-                setTextColor(if (active) Color.rgb(44, 44, 48) else Color.WHITE)
+                setTextColor(if (active) Color.rgb(42, 53, 74) else Color.WHITE)
                 setPadding(0, dp(7), 0, 0)
                 if (active) setTypeface(null, Typeface.BOLD)
             })
